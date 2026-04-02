@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Visible Light Spectrum Visualizer</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      background-color: #222;
+      color: #eee;
+      font-family: sans-serif;
+    }
+    #p5-container {
+      border: 2px solid #555;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .info-panel {
+      margin-top: 20px;
+      padding: 15px;
+      background-color: #333;
+      border-radius: 8px;
+      text-align: center;
+      width: 400px;
+    }
+    .info-item {
+      margin-bottom: 8px;
+    }
+    .label {
+      font-weight: bold;
+      margin-right: 5px;
+    }
+    .value {
+      font-weight: normal;
+    }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+</head>
+<body>
+
+  <h1>Interactive Visible Light Spectrum</h1>
+  <div id="p5-container"></div>
+  <div class="info-panel">
+    <div class="info-item"><span class="label">Wavelength:</span> <span id="wavelength-val" class="value"></span> nm</div>
+    <div class="info-item"><span class="label">Frequency:</span> <span id="frequency-val" class="value"></span> THz</div>
+    <div class="info-item"><span class="label">Approx. Color:</span> <span id="color-val" class="value" style="display:inline-block; width: 30px; height: 15px; border: 1px solid #555; vertical-align: middle;"></span></div>
+  </div>
+
+  <script>
+    const CANVAS_WIDTH = 600;
+    const CANVAS_HEIGHT = 150;
+    const MIN_WAVELENGTH = 380; 
+    const MAX_WAVELENGTH = 750; 
+    const WAVE_SPEED = 0.05; 
+
+    let currentWavelength;
+    let color_rgb = [0, 0, 0]; 
+    let time = 0; 
+
+    function setup() {
+      let cnv = createCanvas(CANVAS_WIDTH, CANVAS_HEIGHT);
+      cnv.parent('p5-container');
+      noStroke();
+      currentWavelength = (MIN_WAVELENGTH + MAX_WAVELENGTH) / 2;
+      updateInformation(); 
+    }
+
+    function draw() {
+      background(30); 
+      drawSpectrumGradient();
+
+      if (mouseIsPressed && mouseX >= 0 && mouseX <= width && mouseY >= 0 && mouseY <= height) {
+        currentWavelength = map(mouseX, 0, width, MIN_WAVELENGTH, MAX_WAVELENGTH);
+        updateInformation();
+      }
+
+      calculateCurrentProperties();
+      drawWaveRepresentation();
+      drawSelectionIndicator();
+
+      time += WAVE_SPEED; 
+    }
+
+    function drawSpectrumGradient() {
+      let gradient = drawingContext.createLinearGradient(0, 0, width, 0);
+      gradient.addColorStop(0, wavelengthToColor(MIN_WAVELENGTH));
+      gradient.addColorStop(0.15, wavelengthToColor(440));
+      gradient.addColorStop(0.3, wavelengthToColor(490));
+      gradient.addColorStop(0.5, wavelengthToColor(510));
+      gradient.addColorStop(0.65, wavelengthToColor(580));
+      gradient.addColorStop(0.8, wavelengthToColor(645));
+      gradient.addColorStop(1, wavelengthToColor(MAX_WAVELENGTH));
+      
+      drawingContext.fillStyle = gradient;
+      rect(0, 0, width, height);
+    }
+
+    function calculateCurrentProperties() {
+      const c = 299792458; 
+      const lambda_m = currentWavelength * 1e-9;
+      const freq_hz = c / lambda_m;
+      const freq_thz = freq_hz / 1e12; 
+
+      color_rgb = wavelengthToColor(currentWavelength);
+
+      window.currentWavelength = currentWavelength;
+      window.currentFrequencyTHz = freq_thz;
+      window.currentColorRGB = color_rgb;
+    }
+
+    function drawWaveRepresentation() {
+      push();
+      translate(width / 2, height / 2); 
+      const amplitude = 30; 
+      const wavesDisplayed = map(currentWavelength, MIN_WAVELENGTH, MAX_WAVELENGTH, 15, 4); 
+      
+      stroke(...color_rgb, 200); 
+      strokeWeight(3);
+      noFill();
+      beginShape();
+      for (let i = -width/4; i <= width/4; i += 2) {
+        const x_coord = i;
+        const waveOffset = (2 * PI * wavesDisplayed * i) / (width/2); 
+        const y_coord = amplitude * sin(2 * PI * time - waveOffset); 
+        vertex(x_coord + width/4, y_coord);
+      }
+      endShape();
+      pop();
+    }
+
+    function drawSelectionIndicator() {
+      const x_pos = map(currentWavelength, MIN_WAVELENGTH, MAX_WAVELENGTH, 0, width);
+      stroke(255); 
+      strokeWeight(2);
+      line(x_pos, 0, x_pos, height);
+    }
+
+    function wavelengthToColor(lambda) {
+      let r, g, b;
+
+      if (lambda >= 380 && lambda < 440) {
+        r = map(lambda, 380, 440, 0.5, 0.2) + map(lambda, 380, 440, 0.5, 0); 
+        g = 0;
+        b = 1;
+      } else if (lambda >= 440 && lambda < 490) {
+        r = 0;
+        g = map(lambda, 440, 490, 0, 1);
+        b = 1;
+      } else if (lambda >= 490 && lambda < 510) {
+        r = 0;
+        g = 1;
+        b = map(lambda, 490, 510, 1, 0);
+      } else if (lambda >= 510 && lambda < 580) {
+        r = map(lambda, 510, 580, 0, 1);
+        g = 1;
+        b = 0;
+      } else if (lambda >= 580 && lambda < 645) {
+        r = 1;
+        g = map(lambda, 580, 645, 1, 0);
+        b = 0;
+      } else if (lambda >= 645 && lambda < 781) {
+        r = 1;
+        g = 0;
+        b = 0;
+      } else {
+        r = 0; g = 0; b = 0; 
+      }
+
+      r = constrain(r * 255, 0, 255);
+      g = constrain(g * 255, 0, 255);
+      b = constrain(b * 255, 0, 255);
+
+      return [r, g, b];
+    }
+
+    function updateInformation() {
+      if (window.currentWavelength) {
+        document.getElementById('wavelength-val').innerText = window.currentWavelength.toFixed(0);
+        document.getElementById('frequency-val').innerText = window.currentFrequencyTHz.toFixed(1);
+        const rgbStr = `rgb(${window.currentColorRGB[0]}, ${window.currentColorRGB[1]}, ${window.currentColorRGB[2]})`;
+        document.getElementById('color-val').style.backgroundColor = rgbStr;
+      }
+    }
+  </script>
+</body>
+</html>
