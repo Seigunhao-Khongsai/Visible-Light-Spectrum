@@ -41,6 +41,17 @@
     .value {
       font-weight: normal;
     }
+    /* Spectrum band overlay - optional but neat */
+    /* .spectrum-overlay {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      background: linear-gradient(to right, 
+        rgba(148, 0, 211, 0.3), rgba(75, 0, 130, 0.3), rgba(0, 0, 255, 0.3), 
+        rgba(0, 255, 0, 0.3), rgba(255, 255, 0, 0.3), rgba(255, 127, 0, 0.3), 
+        rgba(255, 0, 0, 0.3));
+    } */
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
 </head>
@@ -57,39 +68,55 @@
   <script>
     const CANVAS_WIDTH = 600;
     const CANVAS_HEIGHT = 150;
-    const MIN_WAVELENGTH = 380; 
-    const MAX_WAVELENGTH = 750; 
-    const WAVE_SPEED = 0.05; 
+    const MIN_WAVELENGTH = 380; // nm
+    const MAX_WAVELENGTH = 750; // nm
+    const WAVE_SPEED = 0.05; // Adjust animation speed
 
     let currentWavelength;
-    let color_rgb = [0, 0, 0]; 
-    let time = 0; 
+    let color_rgb = [0, 0, 0]; // Store current color
+    let time = 0; // Animation timer
 
     function setup() {
       let cnv = createCanvas(CANVAS_WIDTH, CANVAS_HEIGHT);
       cnv.parent('p5-container');
       noStroke();
+      
+      // Initialize with mid-spectrum wavelength
       currentWavelength = (MIN_WAVELENGTH + MAX_WAVELENGTH) / 2;
       updateInformation(); 
     }
 
     function draw() {
       background(30); 
+
+      // Draw the visible spectrum band (gradient) 
       drawSpectrumGradient();
 
+      // Interactivity: Update wavelength based on mouse position
       if (mouseIsPressed && mouseX >= 0 && mouseX <= width && mouseY >= 0 && mouseY <= height) {
+        // Map mouseX to wavelength range
         currentWavelength = map(mouseX, 0, width, MIN_WAVELENGTH, MAX_WAVELENGTH);
         updateInformation();
       }
 
+      // Calculate properties and color for current wavelength
       calculateCurrentProperties();
+
+      // Draw the wave representation 
       drawWaveRepresentation();
+
+      // Draw selection indicator (vertical line)
       drawSelectionIndicator();
 
-      time += WAVE_SPEED; 
+      time += WAVE_SPEED; // Advance animation timer
     }
 
+    // --- Helper Functions ---
+
     function drawSpectrumGradient() {
+      // Simplistic approach: just draw a fixed gradient band.
+      // A more robust approach would dynamically generate the gradient *based* on the wavelength -> color algorithm.
+      // Let's create a simpler, fixed gradient for the background for visual reference.
       let gradient = drawingContext.createLinearGradient(0, 0, width, 0);
       gradient.addColorStop(0, wavelengthToColor(MIN_WAVELENGTH));
       gradient.addColorStop(0.15, wavelengthToColor(440));
@@ -103,32 +130,50 @@
       rect(0, 0, width, height);
     }
 
+
     function calculateCurrentProperties() {
-      const c = 299792458; 
+      // 1. Calculate Frequency: f = c / lambda
+      // c approx 3e8 m/s, convert nm to m (1e-9)
+      const c = 299792458; // m/s
       const lambda_m = currentWavelength * 1e-9;
       const freq_hz = c / lambda_m;
-      const freq_thz = freq_hz / 1e12; 
+      const freq_thz = freq_hz / 1e12; // Convert Hz to THz
 
+      // 2. Get RGB color for current wavelength (using Bruton algorithm-ish approximation)
       color_rgb = wavelengthToColor(currentWavelength);
 
+      // Store values to update HTML later
       window.currentWavelength = currentWavelength;
       window.currentFrequencyTHz = freq_thz;
       window.currentColorRGB = color_rgb;
     }
 
+
     function drawWaveRepresentation() {
+      // Simplified wave visualization based on current wavelength/color
       push();
-      translate(width / 2, height / 2); 
-      const amplitude = 30; 
-      const wavesDisplayed = map(currentWavelength, MIN_WAVELENGTH, MAX_WAVELENGTH, 15, 4); 
-      
-      stroke(...color_rgb, 200); 
+      translate(width / 2, height / 2); // Center wave vertically, slightly right
+
+      // Frequency visually represents wave repetition in a given space (conceptually related, not literal mapping)
+      // Wavelength is literally spatial length
+      // Let's use wavelength to define wave properties:
+      const amplitude = 30; // height
+      // Convert wavelength (380-750) to wave parameter (shorter lambda = more waves)
+      // So use reciprocal (MAX_WAVELENGTH - lambda + MIN_WAVELENGTH) or mapping to scale:
+      const visualWavePeriod = map(currentWavelength, MIN_WAVELENGTH, MAX_WAVELENGTH, 50, 200); // Inverse mapping: short -> short, long -> long... wait, that's not right for wave appearance. Shorter lambda means *more* waves, smaller distance between peaks. 
+      // Let's define number of waves displayed based on lambda:
+      const wavesDisplayed = map(currentWavelength, MIN_WAVELENGTH, MAX_WAVELENGTH, 15, 4); // Shorter lambda -> more waves
+      const waveSpacing = (width / 2) / wavesDisplayed;
+
+      stroke(...color_rgb, 200); // Set line color, partial opacity
       strokeWeight(3);
       noFill();
       beginShape();
       for (let i = -width/4; i <= width/4; i += 2) {
+        // Calculate dynamic sine wave: y = amplitude * sin(2*pi*f*t - k*x)  --> simplify logic for visualisation
         const x_coord = i;
-        const waveOffset = (2 * PI * wavesDisplayed * i) / (width/2); 
+        // Frequency logic: higher frequency -> faster oscillation -> more waves spatially (related conceptually, let's use lambda to determine spatial frequency directly)
+        const waveOffset = (2 * PI * wavesDisplayed * i) / (width/2); // More waves for shorter lambda
         const y_coord = amplitude * sin(2 * PI * time - waveOffset); 
         vertex(x_coord + width/4, y_coord);
       }
@@ -136,18 +181,21 @@
       pop();
     }
 
+
     function drawSelectionIndicator() {
+      // Vertical line at current wavelength position
       const x_pos = map(currentWavelength, MIN_WAVELENGTH, MAX_WAVELENGTH, 0, width);
-      stroke(255); 
+      stroke(255); // White line
       strokeWeight(2);
       line(x_pos, 0, x_pos, height);
     }
 
+    // Wavelength to RGB approximation algorithm (simplified Bruton)
     function wavelengthToColor(lambda) {
       let r, g, b;
 
       if (lambda >= 380 && lambda < 440) {
-        r = map(lambda, 380, 440, 0.5, 0.2) + map(lambda, 380, 440, 0.5, 0); 
+        r = map(lambda, 380, 440, 0.5, 0.2) + map(lambda, 380, 440, 0.5, 0) ; // Simplify mapping, make more reliable approximation later
         g = 0;
         b = 1;
       } else if (lambda >= 440 && lambda < 490) {
@@ -171,8 +219,15 @@
         g = 0;
         b = 0;
       } else {
-        r = 0; g = 0; b = 0; 
+        r = 0; g = 0; b = 0; // Black for outside range
       }
+
+      // Simple attenuation for perceived intensity at edges of spectrum (simplistic)
+      let factor = 0.5; // Overall dimmer
+      if (lambda > 700) factor = map(lambda, 700, 780, 0.5, 0); // Attenuate in far red
+      else if (lambda < 420) factor = map(lambda, 380, 420, 0, 0.5); // Attenuate in deep violet
+      
+      // Let's ignore intensity factor for now for cleaner color display
 
       r = constrain(r * 255, 0, 255);
       g = constrain(g * 255, 0, 255);
@@ -189,6 +244,7 @@
         document.getElementById('color-val').style.backgroundColor = rgbStr;
       }
     }
+
   </script>
 </body>
 </html>
